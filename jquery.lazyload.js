@@ -15,6 +15,7 @@
 
 (function($, window, document, undefined) {
     var $window = $(window);
+    var $document = $(document);
 
     $.fn.lazyload = function(options) {
         var elements = this;
@@ -34,6 +35,17 @@
 
         function update() {
             var counter = 0;
+
+            /* Remove images that are not in DOM */
+            var temp = $.grep(elements, function(element) {
+                return $.contains(document, element);
+            });
+            elements = $(temp);
+
+            if (elements.length === 0) {
+                destroy();
+                return;
+            }
 
             elements.each(function() {
                 var $this = $(this);
@@ -57,6 +69,11 @@
 
         }
 
+        function destroy() {
+            $container.off(settings.event, update);
+            $window.off("resize", update);
+        }
+
         if(options) {
             /* Maintain BC for a couple of versions. */
             if (undefined !== options.failurelimit) {
@@ -77,9 +94,7 @@
 
         /* Fire one scroll event per scroll. Not one scroll event per image. */
         if (0 === settings.event.indexOf("scroll")) {
-            $container.bind(settings.event, function() {
-                return update();
-            });
+            $container.on(settings.event, update);
         }
 
         this.each(function() {
@@ -103,7 +118,7 @@
                         settings.appear.call(self, elements_left, settings);
                     }
                     $("<img />")
-                        .bind("load", function() {
+                        .one("load", function() {
 
                             var original = $self.attr("data-" + settings.data_attribute);
                             $self.hide();
@@ -121,6 +136,11 @@
                                 return !element.loaded;
                             });
                             elements = $(temp);
+
+                            if (elements.length === 0) {
+                                destroy();
+                                return;
+                            }
 
                             if (settings.load) {
                                 var elements_left = elements.length;
@@ -143,14 +163,12 @@
         });
 
         /* Check if something appears when window is resized. */
-        $window.bind("resize", function() {
-            update();
-        });
+        $window.on("resize", update);
 
         /* With IOS5 force loading images when navigating with back button. */
         /* Non optimal workaround. */
         if ((/(?:iphone|ipod|ipad).*os 5/gi).test(navigator.appVersion)) {
-            $window.bind("pageshow", function(event) {
+            $window.on("pageshow", function(event) {
                 if (event.originalEvent && event.originalEvent.persisted) {
                     elements.each(function() {
                         $(this).trigger("appear");
@@ -160,9 +178,7 @@
         }
 
         /* Force initial check if images should appear. */
-        $(document).ready(function() {
-            update();
-        });
+        $document.ready(update);
 
         return this;
     };
